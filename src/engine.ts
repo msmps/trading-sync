@@ -1,18 +1,10 @@
-import {
-  Array as Arr,
-  Data,
-  DateTime,
-  Effect,
-  Hash,
-  Option,
-  Schema,
-} from "effect";
+import { Array as Arr, Data, DateTime, Effect, Option, Schema } from "effect";
 import * as Currency from "./currency";
 import { Trading212 } from "./trading-212/client";
 import { Ynab } from "./ynab/client";
 
-class AccountBalanceNotFound extends Data.TaggedError(
-  "AccountBalanceNotFound",
+class InvestmentAccountBalanceNotFound extends Data.TaggedError(
+  "InvestmentAccountBalanceNotFound",
 ) {}
 
 class CreateTransactionError extends Data.TaggedError(
@@ -23,8 +15,7 @@ class CreateTransactionError extends Data.TaggedError(
 
 const ValidTransaction = Schema.Struct({
   id: Schema.String,
-  memo: Schema.String.pipe(Schema.startsWith("tsid:")),
-  amount: Currency.MilliunitsSchema,
+  payee_name: Schema.Literal("Trading 212"),
 });
 
 const getLastSyncedTransaction = (accountId: string, budgetId: string) =>
@@ -33,7 +24,7 @@ const getLastSyncedTransaction = (accountId: string, budgetId: string) =>
 
     return yield* ynabClient.getTransactionsByAccount(budgetId, accountId).pipe(
       Effect.flatMap(({ transactions }) =>
-        Effect.succeed(Arr.last(transactions)),
+        Effect.succeed(Arr.head(transactions)),
       ),
       Effect.andThen((maybeTransaction) => {
         if (Option.isNone(maybeTransaction)) {
@@ -80,56 +71,54 @@ export function sync(accountId: string, budgetId: string) {
     const trading212Client = yield* Trading212;
     const ynabClient = yield* Ynab;
 
-    const maybeAccountBalance = yield* trading212Client.getAccountBalance();
-    if (Option.isNone(maybeAccountBalance)) {
-      return yield* new AccountBalanceNotFound();
+    const maybeInvestmentAccountBalance =
+      yield* trading212Client.getAccountBalance();
+
+    if (Option.isNone(maybeInvestmentAccountBalance)) {
+      return yield* new InvestmentAccountBalanceNotFound();
     }
 
-    const accountBalance = maybeAccountBalance.value;
+    const investmentAccountBalance = Currency.dollarsToMilliunits(
+      maybeInvestmentAccountBalance.value.total,
+    );
 
     const maybeLastSyncedTransaction = yield* getLastSyncedTransaction(
       accountId,
       budgetId,
     );
 
-    const latestSyncedTransactionAmount = Option.isSome(
-      maybeLastSyncedTransaction,
-    )
-      ? maybeLastSyncedTransaction.value.amount
-      : Currency.dollarsToMilliunits(accountBalance.total);
+    const hasPreviousSync = Option.isSome(maybeLastSyncedTransaction); // TODO: Data will probably never be needed, refactor this to boolean
+    const accountInformation =
+      yield* ynabClient.getAccountInformationByAccountId(budgetId, accountId);
+    const balanceChangeAmount =
+      investmentAccountBalance - accountInformation.account.balance;
+    const syncTime = yield* DateTime.now;
 
     /**
      * Debugging
      */
     yield* Effect.logDebug(
-      `[1] Last synced transaction amount: ${
-        latestSyncedTransactionAmount / 1000
-      }`,
+      `[1] YNAB Account Balance: ${accountInformation.account.balance / 1000}`,
     );
     yield* Effect.logDebug(
-      `[2] Account balance: ${
-        Currency.dollarsToMilliunits(accountBalance.total) / 1000
-      }`,
+      `[2] Trading212 Account balance: ${investmentAccountBalance / 1000}`,
     );
-    yield* Effect.logDebug(
-      `[3] Change: ${
-        (latestSyncedTransactionAmount -
-          Currency.dollarsToMilliunits(accountBalance.total)) /
-        1000
-      }`,
-    );
-
-    const syncTime = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
+    yield* Effect.logDebug(`[3] Change: ${balanceChangeAmount / 1000}`);
 
     yield* ynabClient
       .createTransaction(budgetId, {
         transaction: {
           account_id: accountId,
-          amount: Currency.dollarsToMilliunits(accountBalance.total),
-          date: syncTime,
-          memo: `tsid:${Hash.number(
-            Hash.string("tsid") + accountBalance.total,
-          ).toString(16)}`,
+          amount: !hasPreviousSync
+            ? investmentAccountBalance
+            : balanceChangeAmount,
+          date: syncTime.pipe(DateTime.formatIso),
+          memo: `${
+            !hasPreviousSync ? "Initial sync" : "Synced"
+          } at ${syncTime.pipe(
+            DateTime.format({ locale: "en-GB", timeStyle: "medium" }),
+          )}`,
+          payee_name: "Trading 212",
         },
       })
       .pipe(

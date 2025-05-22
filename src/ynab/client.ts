@@ -1,5 +1,6 @@
 import { Config, Context, Data, Effect, Layer, Redacted } from "effect";
 import ynab, {
+  type AccountResponseData,
   type SaveTransactionsResponseData,
   type TransactionsResponseData,
 } from "ynab";
@@ -22,6 +23,10 @@ type GetTransactionsByAccountParams = Parameters<
   YnabClient["transactions"]["getTransactionsByAccount"]
 >;
 
+type GetAccountInformationByIdParams = Parameters<
+  YnabClient["accounts"]["getAccountById"]
+>;
+
 type IYnab = Readonly<{
   createTransaction: (
     ...params: CreateTransactionParams
@@ -29,6 +34,9 @@ type IYnab = Readonly<{
   getTransactionsByAccount: (
     ...params: GetTransactionsByAccountParams
   ) => Effect.Effect<TransactionsResponseData, YnabClientError>;
+  getAccountInformationByAccountId: (
+    ...params: GetAccountInformationByIdParams
+  ) => Effect.Effect<AccountResponseData, YnabClientError>;
 }>;
 
 const defaultConfig = {
@@ -71,9 +79,17 @@ const createService = (config: Config.Config.Wrap<YnabConfig>) =>
           .then((res) => res.data),
       );
 
+    const getAccountInformationByAccountId = (
+      ...params: GetAccountInformationByIdParams
+    ) =>
+      useClient((client) =>
+        client.accounts.getAccountById(...params).then((res) => res.data),
+      );
+
     return {
       createTransaction,
       getTransactionsByAccount,
+      getAccountInformationByAccountId,
     };
   });
 
