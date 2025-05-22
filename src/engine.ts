@@ -1,4 +1,4 @@
-import { Array as Arr, Data, DateTime, Effect, Option, Schema } from "effect";
+import { Array as Arr, Data, DateTime, Effect, Option } from "effect";
 import * as Currency from "./currency";
 import { Trading212 } from "./trading-212/client";
 import { Ynab } from "./ynab/client";
@@ -13,57 +13,20 @@ class CreateTransactionError extends Data.TaggedError(
   cause: unknown;
 }> {}
 
-const ValidTransaction = Schema.Struct({
-  id: Schema.String,
-  payee_name: Schema.Literal("Trading 212"),
-});
-
 const getLastSyncedTransaction = (accountId: string, budgetId: string) =>
   Effect.gen(function* () {
     const ynabClient = yield* Ynab;
 
-    return yield* ynabClient.getTransactionsByAccount(budgetId, accountId).pipe(
-      Effect.flatMap(({ transactions }) =>
-        Effect.succeed(Arr.head(transactions)),
-      ),
-      Effect.andThen((maybeTransaction) => {
-        if (Option.isNone(maybeTransaction)) {
-          return Effect.succeed(Option.none());
-        }
-
-        return Schema.decodeUnknown(ValidTransaction)(
-          maybeTransaction.value,
-        ).pipe(
-          Effect.map((transaction) => Option.some(transaction)),
-          Effect.catchAll((parseError) =>
-            Effect.gen(function* () {
-              yield* Effect.logWarning(
-                "Failed to decode last synced YNAB transaction. Will proceed as if no valid last transaction was found.",
-              ).pipe(
-                Effect.annotateLogs({
-                  reason:
-                    "Schema validation failed for a transaction fetched from YNAB. This usually means it was not created by this sync tool.",
-                  error: parseError,
-                  problematicTransaction: JSON.stringify(
-                    maybeTransaction.value,
-                  ),
-                }),
-              );
-
-              return Option.none();
-            }),
+    return yield* ynabClient
+      .getTransactionsByAccount(budgetId, accountId)
+      .pipe(
+        Effect.map(({ transactions }) =>
+          Arr.findFirst(
+            transactions,
+            (transaction) => transaction.payee_name === "Trading 212",
           ),
-        );
-
-        // if (Option.isSome(maybeTransaction)) {
-        //   return Schema.decodeUnknown(ValidTransaction)(
-        //     maybeTransaction.value
-        //   ).pipe(Effect.option);
-        // }
-
-        // return Effect.succeed(Option.none());
-      }),
-    );
+        ),
+      );
   });
 
 export function sync(accountId: string, budgetId: string) {
