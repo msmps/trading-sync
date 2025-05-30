@@ -1,4 +1,12 @@
-import { Array as Arr, Context, DateTime, Effect, Layer, Option } from "effect";
+import {
+  Array as Arr,
+  Context,
+  DateTime,
+  Effect,
+  Layer,
+  Option,
+  Struct,
+} from "effect";
 import * as Currency from "./currency";
 import {
   Trading212AccountBalanceEmptyError,
@@ -20,7 +28,7 @@ type SyncError =
 type ISyncEngine = Readonly<{
   sync: (
     accountId: string,
-    budgetId: string
+    budgetId: string,
   ) => Effect.Effect<SyncResult, SyncError>;
 }>;
 
@@ -29,23 +37,23 @@ export class SyncEngine extends Context.Tag("SyncEngine")<
   ISyncEngine
 >() {}
 
+const PAYEE_NAME = "Trading 212";
+
 const createService = () =>
   Effect.gen(function* () {
     const trading212 = yield* Trading212.Trading212;
     const ynab = yield* YNAB.Ynab;
 
-    const getLastSyncedTransaction = (accountId: string, budgetId: string) =>
+    const getLastSyncedTransaction = (budgetId: string, accountId: string) =>
       Effect.gen(function* () {
         return yield* ynab.getTransactionsByAccount(budgetId, accountId).pipe(
-          Effect.map(({ transactions }) =>
-            Arr.findFirst(
-              transactions,
-              (transaction) => transaction.payee_name === "Trading 212"
-            )
+          Effect.map(Struct.get("transactions")),
+          Effect.map(
+            Arr.some((transaction) => transaction.payee_name === PAYEE_NAME),
           ),
           Effect.mapError(
-            (cause) => new YNABGetLastSyncedTransactionError({ cause })
-          )
+            (cause) => new YNABGetLastSyncedTransactionError({ cause }),
+          ),
         );
       });
 
@@ -59,24 +67,25 @@ const createService = () =>
         }
 
         const investmentAccountBalance = Currency.dollarsToMilliunits(
-          maybeInvestmentAccountBalance.value.total
+          maybeInvestmentAccountBalance.value.total,
         );
 
-        const maybeLastSyncedTransaction = yield* getLastSyncedTransaction(
+        const hasPreviousSync = yield* getLastSyncedTransaction(
+          budgetId,
           accountId,
-          budgetId
         );
 
-        const hasPreviousSync = Option.isSome(maybeLastSyncedTransaction); // TODO: Data will probably never be needed, refactor this to boolean
         const accountInformation = yield* ynab
           .getAccountInformationByAccountId(budgetId, accountId)
           .pipe(
             Effect.mapError(
-              (cause) => new YNABGetAccountInformationError({ cause })
-            )
+              (cause) => new YNABGetAccountInformationError({ cause }),
+            ),
           );
+
         const balanceChangeAmount =
           investmentAccountBalance - accountInformation.account.balance;
+
         const syncTime = yield* DateTime.now;
 
         yield* ynab
@@ -90,9 +99,9 @@ const createService = () =>
               memo: `${
                 !hasPreviousSync ? "Initial sync" : "Synced"
               } at ${syncTime.pipe(
-                DateTime.format({ locale: "en-GB", timeStyle: "medium" })
+                DateTime.format({ locale: "en-GB", timeStyle: "medium" }),
               )}`,
-              payee_name: "Trading 212",
+              payee_name: PAYEE_NAME,
             },
           })
           .pipe(
@@ -100,8 +109,8 @@ const createService = () =>
               (cause) =>
                 new YNABCreateTransactionError({
                   cause,
-                })
-            )
+                }),
+            ),
           );
       });
     };
@@ -114,5 +123,5 @@ const createService = () =>
 const layerWithoutDependencies = Layer.effect(SyncEngine, createService());
 
 export const layer = layerWithoutDependencies.pipe(
-  Layer.provide([Trading212.layer, YNAB.layer])
+  Layer.provide([Trading212.layer, YNAB.layer]),
 );

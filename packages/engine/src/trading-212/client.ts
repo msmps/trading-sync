@@ -28,12 +28,12 @@ const createService = (config: Config.Config.Wrap<Trading212ClientConfig>) =>
     const getAccountBalance = () =>
       Effect.gen(function* () {
         const request = HttpClientRequest.get(
-          "https://live.trading212.com/api/v0/equity/account/cash"
+          "https://live.trading212.com/api/v0/equity/account/cash",
         ).pipe(
           HttpClientRequest.setHeader(
             "Authorization",
-            Redacted.value(cfg.apiKey)
-          )
+            Redacted.value(cfg.apiKey),
+          ),
         );
 
         return yield* httpClient
@@ -50,9 +50,9 @@ const createService = (config: Config.Config.Wrap<Trading212ClientConfig>) =>
 
 export const layerWithoutDependencies = Layer.effect(
   Trading212,
-  createService(defaultConfig)
+  createService(defaultConfig),
 );
 
 export const layer = layerWithoutDependencies.pipe(
-  Layer.provide(NodeHttpClient.layer)
+  Layer.provide(NodeHttpClient.layer),
 );

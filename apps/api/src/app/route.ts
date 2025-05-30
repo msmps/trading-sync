@@ -27,26 +27,26 @@ export async function GET(request: NextRequest) {
   after(
     runtime.runPromise(sync()).then((result) => {
       console.log(JSON.stringify(result, null, 2));
-    }, console.error)
+    }, console.error),
   );
 
   return new NextResponse(undefined, { status: 200 });
 }
 
 const authenticate = Effect.fn("authenticate")(function* (
-  request: NextRequest
+  request: NextRequest,
 ) {
   const secret = yield* Config.redacted("CRON_SECRET").pipe(
     Effect.mapError(
       () =>
         new Unauthorized({
           cause: "Environment variable `CRON_SECRET` is missing",
-        })
-    )
+        }),
+    ),
   );
 
   const maybeBearerToken = Option.fromNullable(
-    request.headers.get("authorization")
+    request.headers.get("authorization"),
   );
 
   if (Option.isNone(maybeBearerToken)) {
