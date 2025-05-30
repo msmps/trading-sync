@@ -1,0 +1,20 @@
+{
+  "name": "@trading-sync/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@trading-sync/engine": "workspace:*",
+    "effect": "^3.16.2",
+    "next": "15.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}

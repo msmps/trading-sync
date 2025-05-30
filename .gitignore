@@ -36,3 +36,16 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Misc
 notes.md
 *swagger.json
+
+# turborepo
+.turbo
+
+# vercel
+.vercel
+
+# next.js
+.next
+out
+
+# typescript
+next-env.d.ts

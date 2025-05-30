@@ -1,0 +1,19 @@
+{
+  "name": "@trading-sync/engine",
+  "module": "src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.17.1",
+    "@types/bun": "latest",
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.84.3",
+    "@effect/platform-node": "^0.83.3",
+    "effect": "^3.16.2",
+    "ynab": "^2.9.0"
+  }
+}

@@ -1,6 +1,6 @@
 import { Brand, Schema } from "effect";
 
-export type Dollars = number & Brand.Brand<"Dollars">;
+type Dollars = number & Brand.Brand<"Dollars">;
 const Dollars = Brand.nominal<Dollars>();
 export const DollarsSchema = Schema.fromBrand(Dollars)(Schema.Number);
 

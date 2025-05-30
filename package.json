@@ -1,25 +1,16 @@
 {
   "name": "trading-sync",
-  "module": "index.ts",
-  "type": "module",
   "private": true,
   "scripts": {
-    "lint": "biome check --write",
-    "lint:check": "biome check",
-    "lint:unsafe": "biome check --write --unsafe"
+    "lint": "biome check --write .",
+    "turbo:lint": "turbo run lint",
+    "build": "turbo run build"
   },
+  "workspaces": ["apps/*", "packages/*"],
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@effect/language-service": "^0.16.0",
-    "@types/bun": "latest"
+    "turbo": "^2.5.3",
+    "typescript": "^5.8.3"
   },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "@effect/platform": "^0.82.4",
-    "@effect/platform-node": "^0.81.1",
-    "effect": "^3.15.1",
-    "ynab": "^2.9.0"
-  }
+  "packageManager": "bun@1.2.15"
 }

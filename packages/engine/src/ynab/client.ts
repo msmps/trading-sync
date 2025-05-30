@@ -1,13 +1,14 @@
 import { Config, Context, Data, Effect, Layer, Redacted } from "effect";
-import ynab, {
-  type AccountResponseData,
-  type SaveTransactionsResponseData,
-  type TransactionsResponseData,
+import * as ynab from "ynab";
+import type {
+  AccountResponseData,
+  SaveTransactionsResponseData,
+  TransactionsResponseData,
 } from "ynab";
 
 type YnabClient = ynab.api;
 
-class YnabClientError extends Data.TaggedError("YnabClientError")<{
+export class YnabClientError extends Data.TaggedError("YnabClientError")<{
   cause: unknown;
 }> {}
 
